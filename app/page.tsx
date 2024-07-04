@@ -1,5 +1,6 @@
 'use client'
 
+import SoundWaveCanvas from "@/components/SoundWaveCanvas";
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -18,76 +19,105 @@ export default function Home() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [whistleTargetCount, setWhistleTargetCount] = useState(1);
   const [whistleCount, setWhistleCount] = useState(0);
-
   const [isListening, setIsListening] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const audioContext = useRef<AudioContext | null>(null);
-  const analyser = useRef<AnalyserNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioRef = useRef<AudioContext | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
 
   const handleStartListening = async () => {
-
-    if (!audioContext.current) {
-      audioContext.current = new (window.AudioContext)();
-      analyser.current = audioContext.current.createAnalyser();
-    }
+    setIsLoading(true);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const source = audioContext.current.createMediaStreamSource(stream);
-      if (!analyser?.current) throw new Error('Error creating analyser.');
-
-      source.connect(analyser.current);
-      setIsListening(true);
+      streamRef.current = stream;
       detectWhistle();
+      setIsListening(true);
     } catch (err) {
       console.error('Error accessing microphone:', err);
+    } finally {
+      setIsLoading(false);
+      setOpenDrawer(false);
     }
 
-    setOpenDrawer(false);
   }
 
+  const handleStopListening = () => {
+    if (streamRef?.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+
+    streamRef.current = null;
+    setIsListening(false);
+    setWhistleCount(0);
+    if (audioRef.current) {
+      audioRef.current.close().then(() => {
+        audioRef.current = null;
+      });
+    }
+  }
+
+
   const detectWhistle = () => {
-    if (!isListening) return;
-    if (!analyser?.current) return;
+    if (!streamRef.current) return;
+    audioRef.current = new AudioContext();
+    const analyser = audioRef.current.createAnalyser();
 
-    const bufferLength = analyser.current.frequencyBinCount;
+    const audioSource = audioRef.current.createMediaStreamSource(streamRef.current);
+    audioSource.connect(analyser);
+
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    analyser.current.getByteFrequencyData(dataArray);
 
-    const highFreqSum = dataArray.slice(Math.floor(bufferLength * 0.8)).reduce((a, b) => a + b, 0);
 
-    console.log({ highFreqSum });
+    const update = () => {
 
-    // if (highFreqSum > 10000) { // Adjust this threshold as needed
-    //   setCount(prevCount => {
-    //     const newCount = prevCount + 1;
-    //     if (newCount === targetCount) {
-    //       playAlarm();
-    //     }
-    //     return newCount;
-    //   });
-    // }
+      analyser.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+      const scaleFactor = average / 100;
+      const limitedScaleFactor = Math.min(5, 1 + scaleFactor); // Limit to a maximum of 2
 
-    requestAnimationFrame(detectWhistle);
+      if (limitedScaleFactor > 3) {
+        setWhistleCount(prev => prev + 1);
+      }
+
+      animationFrameRef.current = requestAnimationFrame(update);
+    }
+
+    audioRef.current.resume().then(() => {
+      animationFrameRef.current = requestAnimationFrame(update);
+    });
   };
+
+
+
+
 
   return (
     <main className="bg-[#FFF5E1] h-screen w-screen">
 
+      <h1 className="absolute top-24 left-[20%] text-2xl font-bold text-center">Pressure Cooker Whistle Counter</h1>
 
       <div className="flex items-center justify-center h-screen w-full flex-col">
-
-        <h1 className="text-2xl font-bold text-center mb-20">Pressure Cooker Whistle Counter</h1>
-
         <button
           onClick={() => { if (isListening) return; setOpenDrawer(true) }}
-          className="group relative inline-flex items-center justify-center overflow-hidden rounded-full size-32 border-2 border-[#C80036] bg-gradient-to-tr from-red-600 to-red-500 text-white shadow-lg transition duration-100 ease-in-out hover:shadow-red-500/50 active:translate-y-0.5 active:border-red-600 active:shadow-none">
+          className="group z-10 relative inline-flex items-center justify-center overflow-hidden rounded-full size-32 border-2 border-[#C80036] bg-gradient-to-tr from-red-600 to-red-500 text-white shadow-lg transition duration-100 ease-in-out hover:shadow-red-500/50 active:translate-y-0.5 active:border-red-600 active:shadow-none">
           <span className="absolute inset-0 rounded-full bg-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-10"></span>
           <span className="relative font-medium text-2xl">{isListening ? whistleCount : 'Start'}</span>
         </button>
 
-        {isListening && <Button className="fixed bottom-5 w-[60%] text-xl font-bold uppercase" onClick={handleStopListening}>Stop</Button>}
+        {isListening && <SoundWaveCanvas className="size-20" mediaStream={streamRef.current} />}
+
+
+        {isListening && <Button className="fixed bottom-5 w-[40%] text-xl font-bold uppercase" onClick={handleStopListening}>Stop</Button>}
 
       </div>
 
@@ -107,7 +137,7 @@ export default function Home() {
           </div>
 
           <DrawerFooter>
-            <Button onClick={handleStartListening}>Start listening</Button>
+            <Button disabled={isLoading} onClick={handleStartListening}>{!isLoading ? 'Start listening' : 'Please wait...'}</Button>
             <Button onClick={() => { setOpenDrawer(false) }} variant="outline">Cancel</Button>
           </DrawerFooter>
         </DrawerContent>
