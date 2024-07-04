@@ -10,12 +10,9 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer"
-import { useRef, useState } from "react"
-
-
+import { useEffect, useRef, useState } from "react"
 
 export default function Home() {
-
   const [openDrawer, setOpenDrawer] = useState(false);
   const [whistleTargetCount, setWhistleTargetCount] = useState(1);
   const [whistleCount, setWhistleCount] = useState(0);
@@ -25,7 +22,9 @@ export default function Home() {
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-
+  const whistleStartTimeRef = useRef<number | null>(null);
+  const firstWhistleDetectedRef = useRef<boolean>(false);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   const handleStartListening = async () => {
     setIsLoading(true);
@@ -35,13 +34,13 @@ export default function Home() {
       streamRef.current = stream;
       detectWhistle();
       setIsListening(true);
+      firstWhistleDetectedRef.current = false;
     } catch (err) {
       console.error('Error accessing microphone:', err);
     } finally {
       setIsLoading(false);
       setOpenDrawer(false);
     }
-
   }
 
   const handleStopListening = () => {
@@ -53,17 +52,16 @@ export default function Home() {
       animationFrameRef.current = null;
     }
 
-
     streamRef.current = null;
     setIsListening(false);
     setWhistleCount(0);
+    firstWhistleDetectedRef.current = false;
     if (audioRef.current) {
       audioRef.current.close().then(() => {
         audioRef.current = null;
       });
     }
   }
-
 
   const detectWhistle = () => {
     if (!streamRef.current) return;
@@ -77,16 +75,32 @@ export default function Home() {
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
-
     const update = () => {
-
       analyser.getByteFrequencyData(dataArray);
       const average = dataArray.reduce((a, b) => a + b) / bufferLength;
       const scaleFactor = average / 100;
-      const limitedScaleFactor = Math.min(5, 1 + scaleFactor); // Limit to a maximum of 2
+      const limitedScaleFactor = Math.min(5, 1 + scaleFactor);
 
-      if (limitedScaleFactor > 3) {
-        setWhistleCount(prev => prev + 1);
+      if (limitedScaleFactor > 2) {
+        console.log('trigger');
+
+        if (!firstWhistleDetectedRef.current) {
+          setWhistleCount(prev => prev + 1);
+          firstWhistleDetectedRef.current = true;
+          whistleStartTimeRef.current = Date.now();
+        }
+
+        const diff = Date.now() - (whistleStartTimeRef?.current || 0);
+        if (diff >= 5000) {
+          setWhistleCount(prev => prev + 1);
+          whistleStartTimeRef.current = Date.now();
+        }
+
+        console.log({
+          diff: diff,
+          whistleStartTimeRef: whistleStartTimeRef.current
+        });
+
       }
 
       animationFrameRef.current = requestAnimationFrame(update);
@@ -98,14 +112,16 @@ export default function Home() {
   };
 
 
+  useEffect(() => {
+    if (whistleTargetCount == whistleCount) {
 
-
+    }
+  }, [whistleTargetCount])
 
   return (
     <main className="bg-[#FFF5E1] h-screen w-screen">
-
+      <audio src="" hidden ref={audioPlayerRef}></audio>
       <h1 className="absolute top-24 left-[20%] text-2xl font-bold text-center">Pressure Cooker Whistle Counter</h1>
-
       <div className="flex items-center justify-center h-screen w-full flex-col">
         <button
           onClick={() => { if (isListening) return; setOpenDrawer(true) }}
@@ -116,17 +132,13 @@ export default function Home() {
 
         {isListening && <SoundWaveCanvas className="size-20" mediaStream={streamRef.current} />}
 
-
         {isListening && <Button className="fixed bottom-5 w-[40%] text-xl font-bold uppercase" onClick={handleStopListening}>Stop</Button>}
-
       </div>
-
 
       <Drawer open={openDrawer} onOpenChange={val => setOpenDrawer(val)}>
         <DrawerContent>
-
           <DrawerHeader className="flex justify-center">
-            <DrawerTitle>How many whistle you want?</DrawerTitle>
+            <DrawerTitle>How many whistles do you want?</DrawerTitle>
             <DrawerDescription></DrawerDescription>
           </DrawerHeader>
 
