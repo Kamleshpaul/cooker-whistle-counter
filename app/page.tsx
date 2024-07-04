@@ -27,7 +27,6 @@ export default function Home() {
 
   const handleStartListening = async () => {
     setIsLoading(true);
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -85,7 +84,7 @@ export default function Home() {
       const scaleFactor = average / 100;
       const limitedScaleFactor = Math.min(5, 1 + scaleFactor);
 
-      if (limitedScaleFactor > 3) {
+      if (limitedScaleFactor > 2) {
         console.log('trigger');
 
         if (!firstWhistleDetectedRef.current) {
@@ -126,10 +125,14 @@ export default function Home() {
   return (
     <main className="bg-[#FFF5E1] h-screen w-screen">
       <audio src="/iphone_alarm.mp3" hidden loop={true} id="audio-ring"></audio>
-      <h1 className="absolute top-24 left-[20%] text-2xl font-bold text-center">Pressure Cooker Whistle Counter</h1>
+      <h1 className="absolute top-24 w-full text-2xl font-bold text-center">Pressure Cooker Whistle Counter</h1>
       <div className="flex items-center justify-center h-screen w-full flex-col">
         <button
-          onClick={() => { if (isListening) return; setOpenDrawer(true) }}
+          onClick={() => {
+            if (isListening) return;
+            setOpenDrawer(true);
+            setWhistleTargetCount(1);
+          }}
           className="group z-10 relative inline-flex items-center justify-center overflow-hidden rounded-full size-32 border-2 border-[#C80036] bg-gradient-to-tr from-red-600 to-red-500 text-white shadow-lg transition duration-100 ease-in-out hover:shadow-red-500/50 active:translate-y-0.5 active:border-red-600 active:shadow-none">
           <span className="absolute inset-0 rounded-full bg-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-10"></span>
           <span className="relative font-medium text-2xl">{isListening ? whistleCount : 'Start'}</span>
