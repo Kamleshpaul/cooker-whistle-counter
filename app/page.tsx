@@ -1,113 +1,117 @@
-import Image from "next/image";
+'use client'
+
+import { Button } from "@/components/ui/button"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
+import { useRef, useState } from "react"
+
+
 
 export default function Home() {
+
+  const [openDrawer, setOpenDrawer] = useState(false);
+  const [whistleTargetCount, setWhistleTargetCount] = useState(1);
+  const [whistleCount, setWhistleCount] = useState(0);
+
+  const [isListening, setIsListening] = useState(false);
+
+  const audioContext = useRef<AudioContext | null>(null);
+  const analyser = useRef<AnalyserNode | null>(null);
+
+
+  const handleStartListening = async () => {
+
+    if (!audioContext.current) {
+      audioContext.current = new (window.AudioContext)();
+      analyser.current = audioContext.current.createAnalyser();
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const source = audioContext.current.createMediaStreamSource(stream);
+      if (!analyser?.current) throw new Error('Error creating analyser.');
+
+      source.connect(analyser.current);
+      setIsListening(true);
+      detectWhistle();
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+    }
+
+    setOpenDrawer(false);
+  }
+
+  const detectWhistle = () => {
+    if (!isListening) return;
+    if (!analyser?.current) return;
+
+    const bufferLength = analyser.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.current.getByteFrequencyData(dataArray);
+
+    const highFreqSum = dataArray.slice(Math.floor(bufferLength * 0.8)).reduce((a, b) => a + b, 0);
+
+    console.log({ highFreqSum });
+
+    // if (highFreqSum > 10000) { // Adjust this threshold as needed
+    //   setCount(prevCount => {
+    //     const newCount = prevCount + 1;
+    //     if (newCount === targetCount) {
+    //       playAlarm();
+    //     }
+    //     return newCount;
+    //   });
+    // }
+
+    requestAnimationFrame(detectWhistle);
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
+    <main className="bg-[#FFF5E1] h-screen w-screen">
+
+
+      <div className="flex items-center justify-center h-screen w-full flex-col">
+
+        <h1 className="text-2xl font-bold text-center mb-20">Pressure Cooker Whistle Counter</h1>
+
+        <button
+          onClick={() => { if (isListening) return; setOpenDrawer(true) }}
+          className="group relative inline-flex items-center justify-center overflow-hidden rounded-full size-32 border-2 border-[#C80036] bg-gradient-to-tr from-red-600 to-red-500 text-white shadow-lg transition duration-100 ease-in-out hover:shadow-red-500/50 active:translate-y-0.5 active:border-red-600 active:shadow-none">
+          <span className="absolute inset-0 rounded-full bg-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-10"></span>
+          <span className="relative font-medium text-2xl">{isListening ? whistleCount : 'Start'}</span>
+        </button>
+
+        {isListening && <Button className="fixed bottom-5 w-[60%] text-xl font-bold uppercase" onClick={handleStopListening}>Stop</Button>}
+
       </div>
 
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
 
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+      <Drawer open={openDrawer} onOpenChange={val => setOpenDrawer(val)}>
+        <DrawerContent>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+          <DrawerHeader className="flex justify-center">
+            <DrawerTitle>How many whistle you want?</DrawerTitle>
+            <DrawerDescription></DrawerDescription>
+          </DrawerHeader>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
+          <div className="flex justify-center">
+            <Button variant={'secondary'} className="text-2xl" onClick={() => { setWhistleTargetCount((prev) => prev < 20 ? prev + 1 : 20) }}>+</Button>
+            <div className="size-10 flex justify-center items-center font-bold text-2xl">{whistleTargetCount}</div>
+            <Button variant={'secondary'} className="text-2xl" onClick={() => { setWhistleTargetCount((prev) => prev > 1 ? prev - 1 : 1) }}>-</Button>
+          </div>
 
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+          <DrawerFooter>
+            <Button onClick={handleStartListening}>Start listening</Button>
+            <Button onClick={() => { setOpenDrawer(false) }} variant="outline">Cancel</Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </main>
-  );
+  )
 }
