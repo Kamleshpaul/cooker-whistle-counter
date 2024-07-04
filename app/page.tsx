@@ -24,7 +24,6 @@ export default function Home() {
   const animationFrameRef = useRef<number | null>(null);
   const whistleStartTimeRef = useRef<number | null>(null);
   const firstWhistleDetectedRef = useRef<boolean>(false);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   const handleStartListening = async () => {
     setIsLoading(true);
@@ -52,6 +51,11 @@ export default function Home() {
       animationFrameRef.current = null;
     }
 
+    const elem = document.getElementById('audio-ring') as HTMLAudioElement;
+
+    if (elem) {
+      elem.pause();
+    }
     streamRef.current = null;
     setIsListening(false);
     setWhistleCount(0);
@@ -81,7 +85,7 @@ export default function Home() {
       const scaleFactor = average / 100;
       const limitedScaleFactor = Math.min(5, 1 + scaleFactor);
 
-      if (limitedScaleFactor > 2) {
+      if (limitedScaleFactor > 3) {
         console.log('trigger');
 
         if (!firstWhistleDetectedRef.current) {
@@ -113,14 +117,15 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (whistleTargetCount == whistleCount) {
-
+    const elem = document.getElementById('audio-ring') as HTMLAudioElement;
+    if (whistleTargetCount == whistleCount && elem) {
+      elem.play();
     }
-  }, [whistleTargetCount])
+  }, [whistleCount, whistleTargetCount])
 
   return (
     <main className="bg-[#FFF5E1] h-screen w-screen">
-      <audio src="" hidden ref={audioPlayerRef}></audio>
+      <audio src="/iphone_alarm.mp3" hidden loop={true} id="audio-ring"></audio>
       <h1 className="absolute top-24 left-[20%] text-2xl font-bold text-center">Pressure Cooker Whistle Counter</h1>
       <div className="flex items-center justify-center h-screen w-full flex-col">
         <button
