@@ -84,7 +84,7 @@ export default function Home() {
       const scaleFactor = average / 100;
       const limitedScaleFactor = Math.min(5, 1 + scaleFactor);
 
-      if (limitedScaleFactor > 2) {
+      if (limitedScaleFactor > 1.5) {
         console.log('trigger');
 
         if (!firstWhistleDetectedRef.current) {
